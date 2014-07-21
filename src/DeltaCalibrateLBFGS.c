@@ -9,14 +9,26 @@
 
 const Real PI = 3.14159265359;
 
-// probe values from original maxima worksheet
-Real rod = 150.590;
-Real xa = -207.178;
-Real ya = 62.015;
-Real xc = -41.687;
-Real oa = -9.49, ob = 9.49, oc = 9.49;
+typedef struct {
+	Real delta_radius; // optional
+	Real rod, rod2, rod3; // diagonal rod length, optionally different length for rods.
+	Real xa; // x position of column a, ideally should be sin(240) * delta_radius
+	Real ya; // y position of column a, ideally should be cos(240) * delta_radius
+	Real xc; // x position of column c, ideally should be sin(0) * delta_radius = 0
+	Real oa, ob, oc; // home offsets / limit switches
+	int probeCount;
+	Real probePoints[100][3]; // a list of probed points on the bed in column or motor coordinates
+} DeltaParams;
 
-const Real m[7][3] = {
+DeltaParams p = {
+	123.983,
+	250.590, 250.590, 250.590, // diagonal rod length
+	-107.178, // xa
+	62.015, // ya
+	-41.687, // xc
+	-9.49, -9.49, -9.49, // home offset a, b, c
+	7,
+	{ // probed points on bed Z = 0 in column coordinates
 		{227.34, 227.34, 227.21},
 		{258.65, 170.95, 171.55},
 		{233.28, 233.28, 127.56},
@@ -24,7 +36,25 @@ const Real m[7][3] = {
 		{127.96, 233.20, 232.52},
 		{170.82, 170.82, 258.62},
 		{233.19, 127.95, 233.80}
+	}
 };
+
+// probe values from original maxima worksheet
+//Real rod = 250.590;
+//Real xa = -207.178;
+//Real ya = 62.015;
+//Real xc = -41.687;
+//Real oa = -9.49, ob = 9.49, oc = 9.49;
+//
+//const Real m[][3] = {
+//		{227.34, 227.34, 227.21},
+//		{258.65, 170.95, 171.55},
+//		{233.28, 233.28, 127.56},
+//		{170.94, 258.64, 169.76},
+//		{127.96, 233.20, 232.52},
+//		{170.82, 170.82, 258.62},
+//		{233.19, 127.95, 233.80}
+//};
 
 //// Dejay's probe values from Kossel Mini, I think they are wrong?
 //Real rod = 216;
@@ -45,8 +75,6 @@ const Real m[7][3] = {
 //};
 
 
-static const int sampleCount = 7;
-
 inline Real max(Real a, Real b) {
 	return a > b ? a : b;
 }
@@ -64,10 +92,10 @@ inline static Real eval(Real r, Real xa, Real ya, Real xc, Real oa, Real ob, Rea
 	for (i = 0; i < varCount; i++)
 		g[i] = 0;
 
-	for (i = 0; i < sampleCount; i++) {
-		const Real ta = m[i][0];
-		const Real tb = m[i][1];
-		const Real tc = m[i][2];
+	for (i = 0; i < p.probeCount; i++) {
+		const Real ta = p.probePoints[i][0];
+		const Real tb = p.probePoints[i][1];
+		const Real tc = p.probePoints[i][2];
 
 		Real tb22obtbta = (sqr(tb)+2*ob*tb-sqr(ta)-2*oa*ta+sqr(ob)-sqr(oa));
 		Real yaxctb22ob = (6*sqr(ya)+2*sqr(xc)+(tb22obtbta*xc)/xa-2*sqr(xa)+2*sqr(tc)+4*oc*tc-sqr(tb)-2*ob*tb-sqr(ta)-2*oa*ta+2*sqr(oc)-sqr(ob)-sqr(oa));
@@ -139,9 +167,23 @@ static int progress(void *instance, const Real *x, const Real *g, const Real fx,
 	return 0;
 }
 
+static void printDeltaParams(DeltaParams *p) {
 
+	printf("  rod: %.3f  delta_radius: %.3f  xa:%.2f  ya:%.2f  xc:%.2f  oa: %.2f  ob: %.2f  oc: %.2f  probeCount: %i\n  probePoints:", p->rod, p->delta_radius, p->xa, p->ya, p->xc, p->oa, p->ob, p->oc, p->probeCount);
+	for (int i = 0; i < p->probeCount; i++)
+		printf("(%.2f,%.2f,%.2f) ", p->probePoints[i][0], p->probePoints[i][1], p->probePoints[i][2]);
+	printf("\n");
+}
 
-int calibrate() {
+static Real random() {
+	return (Real) rand() / RAND_MAX;
+}
+
+static Real random2(Real min, Real max) {
+	return min + random() * (max - min);
+}
+
+static int calibrate() {
 
 	int ret = 0;
 	Real fx;
@@ -154,18 +196,21 @@ int calibrate() {
 	}
 
 	/* Initialize the variables. */
-	x[0] = rod;
-	x[1] = xa;
-	x[2] = ya;
-	x[3] = xc;
-	x[4] = oa;
-	x[5] = ob;
-	x[6] = oc;
+	x[0] = p.rod;
+	x[1] = p.xa;
+	x[2] = p.ya;
+	x[3] = p.xc;
+	x[4] = p.oa;
+	x[5] = p.ob;
+	x[6] = p.oc;
 
-	for (int i = 0; i < varCount; i++) x[i] *= (0.2 + ((Real) rand()) / RAND_MAX * 1.8);
+	// randomize starting values to exhaust search space
+	for (int i = 0; i < varCount; i++)
+		x[i] *= random2(0.1, 2.0);
 
 //	printf("\n==============================================================\n");
-//	printf("Starting L-BFGS optimization with initial values:\n");
+	printf("\n");
+//	printf("\nStarting L-BFGS optimization with initial values:\n");
 //	printf("  x[0] = %f, x[1] = %f, x[2] = %f, x[3] = %f, x[4] = %f, x[5] = %f, x[6] = %f\n", x[0], x[1], x[2], x[3], x[4], x[5], x[6]);
 
 	/* Initialize the parameters for the L-BFGS optimization. */
@@ -180,23 +225,88 @@ int calibrate() {
 	ret = lbfgs(varCount, x, &fx, evaluate, NULL, NULL, &param);
 
 	/* Report the result. */
-	printf("L-BFGS optimization terminated with status = %s\n", lbfgs_errorString(ret));
-	printf("  fx = %f, x[0] = %f, x[1] = %f, x[2] = %f, x[3] = %f, x[4] = %f, x[5] = %f, x[6] = %f\n", fx, x[0], x[1], x[2], x[3], x[4], x[5], x[6]);
-	printf("  rod: %f   delta_r: %f   oa: %f   ob: %f   oc: %f\n\n", x[0], sqrt(sqr(x[1]) + sqr(x[2])), x[4], x[5], x[6]);
+	printf("LBFGS error: %f   status: %s\n", fx, lbfgs_errorString(ret));
+//	printf("  fx = %f, x[0] = %f, x[1] = %f, x[2] = %f, x[3] = %f, x[4] = %f, x[5] = %f, x[6] = %f\n  ", fx, x[0], x[1], x[2], x[3], x[4], x[5], x[6]);
+//	printf("  rod: %f   delta_r: %f   oa: %f   ob: %f   oc: %f\n\n", x[0], sqrt(sqr(x[1]) + sqr(x[2])), x[4], x[5], x[6]);
+	DeltaParams r = p;
+	r.rod = x[0];
+	r.delta_radius = sqrt(sqr(x[1]) + sqr(x[2]));
+	r.xa = x[1];
+	r.ya = x[2];
+	r.xc = x[3];
+	r.oa = x[4];
+	r.ob = x[5];
+	r.oc = x[6];
+	printDeltaParams(&r);
 
 	lbfgs_free(x);
 	return 0;
 }
 
+Real asqrt(Real a) {
+//	if (a > 0)
+		return sqrt(a);
+//	else
+//		return -sqrt(-a);
+}
+
+static DeltaParams* generateDummyDelta(DeltaParams* p) {
+
+	p->delta_radius = random2(50, 500);
+	p->rod = p->rod2 = p->rod3 = p->delta_radius * random2(1.8, 2.2);
+	p->xa = sin(240 * PI / 180) * p->delta_radius + random2(-2, 2);
+	p->ya = cos(240 * PI / 180) * p->delta_radius + random2(-2, 2);
+	p->xc = 0 + random2(-2, 2);
+	p->oa = -random2(100, 500);
+	p->ob = p->oa + random2(-1, 1);
+	p->oc = p->oa + random2(-1, 2);
+	p->probeCount = 7 + (int) random2(0, 25);
+
+	Real x, y, z;
+	for (int i = 0; i < p->probeCount; i++) {
+
+		if (i == 0) { // center point
+			x = 0;
+			y = 0;
+		} else if (i < 7) {
+			x = sin((i - 1) * 60 * PI / 180) * p->delta_radius + random(-1, 1);
+			y = cos((i - 1) * 60 * PI / 180) * p->delta_radius + random(-1, 1);
+		} else {
+			do { // make sure to generate a x/y inside delta radius
+				x = random2(-p->delta_radius, p->delta_radius);
+				y = random2(-p->delta_radius, p->delta_radius);
+			} while (x*x + y*y > p->delta_radius);
+		}
+//		printf("%f, %f\n", x, y);
+
+
+		z = 0; // perfect probing and delta
+//		z = random2(-0.01, 0.01); // generate a bit of probe error or bed level error for the Z value
+
+		p->probePoints[i][0] = asqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) + 2 * x * p->xa - sqr(x) + sqr(p->rod))) - p->oa;
+		p->probePoints[i][1] = asqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) - 2 * x * p->xa - sqr(x) + sqr(p->rod2))) - p->ob;
+		p->probePoints[i][2] = asqrt((z - 4 * sqr(p->ya) - 4 * y * p->ya - sqr(y) - sqr(p->xc) + 2 * x * p->xc - sqr(x) + sqr(p->rod3))) - p->oc;
+	}
+
+	return p;
+}
+
 int main(int argc, char *argv[]) {
 
-	clock_t startClock = clock();
-
+	// initialize random seed
 	srand((unsigned)time(NULL));
-	for (int i = 0; i < 1000; i++)
+
+	// generate randomized delta
+	generateDummyDelta(&p);
+
+	printf("Initial delta parameters:\n");
+	printDeltaParams(&p);
+
+	clock_t startClock = clock();
+	for (int i = 0; i < 100; i++)
 		calibrate();
 
-	printf("Used %0.3f seconds of CPU time. \n", (double) (clock() - startClock) / CLOCKS_PER_SEC);
+	printf("\nUsed %0.3f seconds of CPU time. \n", (double) (clock() - startClock) / CLOCKS_PER_SEC);
 
 	return 0;
 }
