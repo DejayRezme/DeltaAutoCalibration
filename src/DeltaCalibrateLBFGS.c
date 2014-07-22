@@ -20,8 +20,9 @@ typedef struct {
 	Real probePoints[100][3]; // a list of probed points on the bed in column or motor coordinates
 } DeltaParams;
 
-DeltaParams p = {
-	123.983,
+// https://github.com/hercek/Marlin/blob/Marlin_v1/calibration.wxm
+DeltaParams p = { // probe values from original maxima worksheet
+	123.983, // delta radius
 	250.590, 250.590, 250.590, // diagonal rod length
 	-107.178, // xa
 	62.015, // ya
@@ -39,32 +40,15 @@ DeltaParams p = {
 	}
 };
 
-// probe values from original maxima worksheet
-//Real rod = 250.590;
-//Real xa = -207.178;
-//Real ya = 62.015;
-//Real xc = -41.687;
-//Real oa = -9.49, ob = 9.49, oc = 9.49;
-//
-//const Real m[][3] = {
-//		{227.34, 227.34, 227.21},
-//		{258.65, 170.95, 171.55},
-//		{233.28, 233.28, 127.56},
-//		{170.94, 258.64, 169.76},
-//		{127.96, 233.20, 232.52},
-//		{170.82, 170.82, 258.62},
-//		{233.19, 127.95, 233.80}
-//};
-
-//// Dejay's probe values from Kossel Mini, I think they are wrong?
-//Real rod = 216;
-//Real delta_r = 105;
-//Real xa = -0.866 * 105;
-//Real ya = -0.5 * 105;
-//Real xc = 0;
-//Real oa = 0, ob = 0, oc = 0;
-//
-//const Real m[7][3] = {
+//DeltaParams p = { // Dejay's probe values from Kossel Mini, I think they are wrong?
+//	105, // delta radius
+//	216, 216, 216, // diagonal rod length
+//	-0.866 * 105, // xa
+//	-0.5 * 105, // ya
+//	0, // xc
+//	0, 0, 0, // home offset a, b, c
+//	7,
+//	{ // probed points on bed Z = 0 in column coordinates
 //		{-272.3500,	-272.3500,	-272.3500},
 //		{-246.3134,	-316.5323,	-316.5323},
 //		{-267.0739,	-349.5644,	-267.0749},
@@ -72,8 +56,8 @@ DeltaParams p = {
 //		{-350.5674,	-268.0746,	-268.0746},
 //		{-317.5313,	-247.3136,	-317.5300},
 //		{-267.2239,	-267.2239,	-349.7144}
+//	}
 //};
-
 
 inline Real max(Real a, Real b) {
 	return a > b ? a : b;
@@ -226,18 +210,20 @@ static int calibrate() {
 
 	/* Report the result. */
 	printf("LBFGS error: %f   status: %s\n", fx, lbfgs_errorString(ret));
-//	printf("  fx = %f, x[0] = %f, x[1] = %f, x[2] = %f, x[3] = %f, x[4] = %f, x[5] = %f, x[6] = %f\n  ", fx, x[0], x[1], x[2], x[3], x[4], x[5], x[6]);
-//	printf("  rod: %f   delta_r: %f   oa: %f   ob: %f   oc: %f\n\n", x[0], sqrt(sqr(x[1]) + sqr(x[2])), x[4], x[5], x[6]);
-	DeltaParams r = p;
-	r.rod = x[0];
-	r.delta_radius = sqrt(sqr(x[1]) + sqr(x[2]));
-	r.xa = x[1];
-	r.ya = x[2];
-	r.xc = x[3];
-	r.oa = x[4];
-	r.ob = x[5];
-	r.oc = x[6];
-	printDeltaParams(&r);
+	if (ret == LBFGS_SUCCESS) {
+		//	printf("  fx = %f, x[0] = %f, x[1] = %f, x[2] = %f, x[3] = %f, x[4] = %f, x[5] = %f, x[6] = %f\n  ", fx, x[0], x[1], x[2], x[3], x[4], x[5], x[6]);
+		//	printf("  rod: %f   delta_r: %f   oa: %f   ob: %f   oc: %f\n\n", x[0], sqrt(sqr(x[1]) + sqr(x[2])), x[4], x[5], x[6]);
+		DeltaParams r = p;
+		r.rod = x[0];
+		r.delta_radius = sqrt(sqr(x[1]) + sqr(x[2]));
+		r.xa = x[1];
+		r.ya = x[2];
+		r.xc = x[3];
+		r.oa = x[4];
+		r.ob = x[5];
+		r.oc = x[6];
+		printDeltaParams(&r);
+	}
 
 	lbfgs_free(x);
 	return 0;
@@ -252,26 +238,33 @@ Real asqrt(Real a) {
 
 static DeltaParams* generateDummyDelta(DeltaParams* p) {
 
+	Real psca = 1; // probe x/y scatter
+	Real perr = 0.1; // probe z error
+	Real terr = 1; // tower error
+	Real x, y, z = 0;
+
 	p->delta_radius = random2(50, 500);
-	p->rod = p->rod2 = p->rod3 = p->delta_radius * random2(1.8, 2.2);
-	p->xa = sin(240 * PI / 180) * p->delta_radius + random2(-2, 2);
-	p->ya = cos(240 * PI / 180) * p->delta_radius + random2(-2, 2);
-	p->xc = 0 + random2(-2, 2);
+	p->rod = p->rod2 = p->rod3 = p->delta_radius * random2(2.01, 2.3);
+	p->xa = sin(240 * PI / 180) * p->delta_radius + random2(-terr, terr);
+	p->ya = cos(240 * PI / 180) * p->delta_radius + random2(-terr, terr);
+	p->xc = 0 + random2(-terr, terr);
 	p->oa = -random2(100, 500);
 	p->ob = p->oa + random2(-1, 1);
 	p->oc = p->oa + random2(-1, 2);
-	p->probeCount = 7 + (int) random2(0, 25);
+	p->probeCount = 7 + (int) random2(6, 21);
 
-	Real x, y, z;
 	for (int i = 0; i < p->probeCount; i++) {
 
 		if (i == 0) { // center point
 			x = 0;
 			y = 0;
 		} else if (i < 7) {
-			x = sin((i - 1) * 60 * PI / 180) * p->delta_radius + random(-1, 1);
-			y = cos((i - 1) * 60 * PI / 180) * p->delta_radius + random(-1, 1);
-		} else {
+			x = sin((i - 1) * 60 * PI / 180) * p->delta_radius + random(-psca, psca);
+			y = cos((i - 1) * 60 * PI / 180) * p->delta_radius + random(-psca, psca);
+		} else if (i < 13) {
+			x = sin((i - 1 + 0.5) * 60 * PI / 180) * p->delta_radius * 0.5 + random(-psca, psca);
+			y = cos((i - 1 + 0.5) * 60 * PI / 180) * p->delta_radius * 0.5 + random(-psca, psca);
+		} else{
 			do { // make sure to generate a x/y inside delta radius
 				x = random2(-p->delta_radius, p->delta_radius);
 				y = random2(-p->delta_radius, p->delta_radius);
@@ -280,8 +273,7 @@ static DeltaParams* generateDummyDelta(DeltaParams* p) {
 //		printf("%f, %f\n", x, y);
 
 
-		z = 0; // perfect probing and delta
-//		z = random2(-0.01, 0.01); // generate a bit of probe error or bed level error for the Z value
+		z = random2(-perr, perr); // generate a bit of probe error or bed level error for the Z value
 
 		p->probePoints[i][0] = asqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) + 2 * x * p->xa - sqr(x) + sqr(p->rod))) - p->oa;
 		p->probePoints[i][1] = asqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) - 2 * x * p->xa - sqr(x) + sqr(p->rod2))) - p->ob;
