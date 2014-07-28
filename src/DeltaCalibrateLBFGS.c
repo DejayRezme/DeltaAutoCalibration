@@ -10,6 +10,8 @@
 const Real PI = 3.14159265359;
 
 typedef struct {
+	Real calibError;
+	int calibStatus;
 	Real delta_radius; // optional
 	Real rod, rod2, rod3; // diagonal rod length, optionally different length for rods.
 	Real xa; // x position of column a, ideally should be sin(240) * delta_radius
@@ -22,6 +24,7 @@ typedef struct {
 
 // https://github.com/hercek/Marlin/blob/Marlin_v1/calibration.wxm
 DeltaParams p = { // probe values from original maxima worksheet
+	0, 0, // calibError and status
 	123.983, // delta radius
 	250.590, 250.590, 250.590, // diagonal rod length
 	-107.178, // xa
@@ -41,6 +44,7 @@ DeltaParams p = { // probe values from original maxima worksheet
 };
 
 //DeltaParams p = { // Dejay's probe values from Kossel Mini, I think they are wrong?
+//	0, 0, // calibError and status
 //	105, // delta radius
 //	216, 216, 216, // diagonal rod length
 //	-0.866 * 105, // xa
@@ -153,10 +157,13 @@ static int progress(void *instance, const Real *x, const Real *g, const Real fx,
 
 static void printDeltaParams(DeltaParams *p) {
 
-	printf("  rod: %.3f  delta_radius: %.3f  xa:%.2f  ya:%.2f  xc:%.2f  oa: %.2f  ob: %.2f  oc: %.2f  probeCount: %i\n  probePoints:", p->rod, p->delta_radius, p->xa, p->ya, p->xc, p->oa, p->ob, p->oc, p->probeCount);
-	for (int i = 0; i < p->probeCount; i++)
-		printf("(%.2f,%.2f,%.2f) ", p->probePoints[i][0], p->probePoints[i][1], p->probePoints[i][2]);
-	printf("\n");
+	printf("  rod: %.3f  delta_radius: %.3f  xa:%.3f  ya:%.3f  xc:%.3f  oa: %.3f  ob: %.3f  oc: %.3f  probeCount: %i\n", p->rod, p->delta_radius, p->xa, p->ya, p->xc, p->oa, p->ob, p->oc, p->probeCount);
+	if (p->probeCount > 0) {
+		printf("probePoints: ");
+		for (int i = 0; i < p->probeCount; i++)
+			printf("(%.2f,%.2f,%.2f) ", p->probePoints[i][0], p->probePoints[i][1], p->probePoints[i][2]);
+		printf("\n");
+	}
 }
 
 static Real random() {
@@ -166,6 +173,13 @@ static Real random() {
 static Real random2(Real min, Real max) {
 	return min + random() * (max - min);
 }
+
+static int shmequal(Real a, Real b) {
+	return abs(a - b) < 0.000001;
+}
+
+#define REPEATS 1000
+DeltaParams *results[REPEATS];
 
 static int calibrate() {
 
@@ -193,7 +207,7 @@ static int calibrate() {
 		x[i] *= random2(0.1, 2.0);
 
 //	printf("\n==============================================================\n");
-	printf("\n");
+//	printf("\n");
 //	printf("\nStarting L-BFGS optimization with initial values:\n");
 //	printf("  x[0] = %f, x[1] = %f, x[2] = %f, x[3] = %f, x[4] = %f, x[5] = %f, x[6] = %f\n", x[0], x[1], x[2], x[3], x[4], x[5], x[6]);
 
@@ -209,25 +223,44 @@ static int calibrate() {
 	ret = lbfgs(varCount, x, &fx, evaluate, NULL, NULL, &param);
 
 	/* Report the result. */
-	printf("LBFGS error: %f   status: %s\n", fx, lbfgs_errorString(ret));
+//	printf("LBFGS error: %f   status: %s\n", fx, lbfgs_errorString(ret));
 	if (ret == LBFGS_SUCCESS) {
 		//	printf("  fx = %f, x[0] = %f, x[1] = %f, x[2] = %f, x[3] = %f, x[4] = %f, x[5] = %f, x[6] = %f\n  ", fx, x[0], x[1], x[2], x[3], x[4], x[5], x[6]);
 		//	printf("  rod: %f   delta_r: %f   oa: %f   ob: %f   oc: %f\n\n", x[0], sqrt(sqr(x[1]) + sqr(x[2])), x[4], x[5], x[6]);
-		DeltaParams r = p;
-		r.rod = x[0];
-		r.delta_radius = sqrt(sqr(x[1]) + sqr(x[2]));
-		r.xa = x[1];
-		r.ya = x[2];
-		r.xc = x[3];
-		r.oa = x[4];
-		r.ob = x[5];
-		r.oc = x[6];
-		printDeltaParams(&r);
+		DeltaParams *r = malloc(sizeof(DeltaParams));
+		r->calibError = fx;
+		r->calibStatus = ret;
+		r->rod = x[0];
+		r->delta_radius = sqrt(sqr(x[1]) + sqr(x[2]));
+		r->xa = x[1];
+		r->ya = x[2];
+		r->xc = x[3];
+		r->oa = x[4];
+		r->ob = x[5];
+		r->oc = x[6];
+//		r->probeCount =
+
+		for (int i = 0; i < REPEATS; i++) {
+			if (results[i] == NULL) {
+				results[i] = r;
+				break;
+			} else if (shmequal(results[i]->calibError, r->calibError) && shmequal(results[i]->rod, r->rod)) {
+				break;
+			} else if (results[i]->calibError > r->calibError) {
+				for (int o = REPEATS - 1; o > i; o--) // make space and bubble up
+					results[o] = results[o-1];
+				results[i] = r;
+				break;
+			}
+		}
 	}
 
 	lbfgs_free(x);
 	return 0;
 }
+
+
+
 
 Real asqrt(Real a) {
 //	if (a > 0)
@@ -241,6 +274,7 @@ static DeltaParams* generateDummyDelta(DeltaParams* p) {
 	Real psca = 1; // probe x/y scatter
 	Real perr = 0.1; // probe z error
 	Real terr = 1; // tower error
+	Real oerr = 1; // endstop offset error
 	Real x, y, z = 0;
 
 	p->delta_radius = random2(50, 500);
@@ -249,9 +283,9 @@ static DeltaParams* generateDummyDelta(DeltaParams* p) {
 	p->ya = cos(240 * PI / 180) * p->delta_radius + random2(-terr, terr);
 	p->xc = 0 + random2(-terr, terr);
 	p->oa = -random2(100, 500);
-	p->ob = p->oa + random2(-1, 1);
-	p->oc = p->oa + random2(-1, 2);
-	p->probeCount = 7 + (int) random2(6, 21);
+	p->ob = p->oa + random2(-oerr, oerr);
+	p->oc = p->oa + random2(-oerr, oerr);
+	p->probeCount = 8;// + (int) random2(6, 21);
 
 	for (int i = 0; i < p->probeCount; i++) {
 
@@ -273,7 +307,8 @@ static DeltaParams* generateDummyDelta(DeltaParams* p) {
 //		printf("%f, %f\n", x, y);
 
 
-		z = random2(-perr, perr); // generate a bit of probe error or bed level error for the Z value
+//		z = random2(-perr, perr); // generate a bit of probe error or bed level error for the Z value
+//		z += x * 0.01; // add some tilt
 
 		p->probePoints[i][0] = asqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) + 2 * x * p->xa - sqr(x) + sqr(p->rod))) - p->oa;
 		p->probePoints[i][1] = asqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) - 2 * x * p->xa - sqr(x) + sqr(p->rod2))) - p->ob;
@@ -295,10 +330,16 @@ int main(int argc, char *argv[]) {
 	printDeltaParams(&p);
 
 	clock_t startClock = clock();
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < REPEATS; i++)
 		calibrate();
 
-	printf("\nUsed %0.3f seconds of CPU time. \n", (double) (clock() - startClock) / CLOCKS_PER_SEC);
+	printf("\nCalibration finished - used %0.3f seconds of CPU time. \n\n", (double) (clock() - startClock) / CLOCKS_PER_SEC);
+
+	for (int i = 0; i < REPEATS; i++)
+		if (results[i] != NULL) {
+			printf("Solution %i error: %.9f\n", i, results[i]->calibError);
+			printDeltaParams(results[i]);
+		}
 
 	return 0;
 }
