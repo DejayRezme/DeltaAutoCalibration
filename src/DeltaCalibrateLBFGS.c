@@ -110,32 +110,6 @@ inline static Real eval(Real r, Real xa, Real ya, Real xc, Real oa, Real ob, Rea
 		g[5] += diff_ob;
 		g[6] += diff_oc;
 
-//		Real error = ((2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya))^2+
-//		(-xc-(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/(4*xa))^2+(tc+oc)^2-r^2)^2;
-//		Real diff_r = -4*r*((2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya))^2+
-//		(-xc-(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/(4*xa))^2+(tc+oc)^2-r^2);
-//		Real diff_xa = 2*(((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*(-xc-(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/(4*xa)))/(2*xa^2)-((-((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa^2-4*xa)*
-//		(2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya)))/(6*ya))*(
-//		(2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya))^2+
-//		(-xc-(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/(4*xa))^2+(tc+oc)^2-r^2);
-//		Real diff_ya = 4*((6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya^2)+1)*
-//		(2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya))*(
-//		(2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya))^2+
-//		(-xc-(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/(4*xa))^2+(tc+oc)^2-r^2);
-//		Real diff_xc = 2*(-((4*xc+(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/xa)*(2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya)))/(6*ya)
-//		-2*(-xc-(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/(4*xa)))*(
-//		(2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya))^2+
-//		(-xc-(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/(4*xa))^2+(tc+oc)^2-r^2);
-//		Real diff_oa = 2*(-((((-2*ta-2*oa)*xc)/xa-2*ta-2*oa)*(2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya)))/(6*ya)-
-//		((-2*ta-2*oa)*(-xc-(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/(4*xa)))/(2*xa))*((2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya))^2+
-//		(-xc-(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/(4*xa))^2+(tc+oc)^2-r^2);
-//		Real diff_ob = 2*(-((((2*tb+2*ob)*xc)/xa-2*tb-2*ob)*(2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya)))/(6*ya)
-//		-((2*tb+2*ob)*(-xc-(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/(4*xa)))/(2*xa))*((2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya))^2+
-//		(-xc-(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/(4*xa))^2+(tc+oc)^2-r^2);
-//		Real diff_oc = 2*(2*(tc+oc)-((4*tc+4*oc)*(2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya)))/(6*ya))*(
-//		(2*ya-(6*ya^2+2*xc^2+((tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)*xc)/xa-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya))^2+
-//		(-xc-(tb^2+2*ob*tb-ta^2-2*oa*ta+ob^2-oa^2)/(4*xa))^2+(tc+oc)^2-r^2);
-
 	}
 
 	return value;
@@ -180,6 +154,8 @@ static int shmequal(Real a, Real b) {
 
 #define REPEATS 1000
 DeltaParams *results[REPEATS];
+int resultsFailed = 0;
+int resultsConverged = 0;
 
 static int calibrate() {
 
@@ -225,6 +201,7 @@ static int calibrate() {
 	/* Report the result. */
 //	printf("LBFGS error: %f   status: %s\n", fx, lbfgs_errorString(ret));
 	if (ret == LBFGS_SUCCESS) {
+		resultsConverged++;
 		//	printf("  fx = %f, x[0] = %f, x[1] = %f, x[2] = %f, x[3] = %f, x[4] = %f, x[5] = %f, x[6] = %f\n  ", fx, x[0], x[1], x[2], x[3], x[4], x[5], x[6]);
 		//	printf("  rod: %f   delta_r: %f   oa: %f   ob: %f   oc: %f\n\n", x[0], sqrt(sqr(x[1]) + sqr(x[2])), x[4], x[5], x[6]);
 		DeltaParams *r = malloc(sizeof(DeltaParams));
@@ -253,6 +230,8 @@ static int calibrate() {
 				break;
 			}
 		}
+	} else {
+		resultsFailed++;
 	}
 
 	lbfgs_free(x);
@@ -282,10 +261,10 @@ static DeltaParams* generateDummyDelta(DeltaParams* p) {
 	p->xa = sin(240 * PI / 180) * p->delta_radius + random2(-terr, terr);
 	p->ya = cos(240 * PI / 180) * p->delta_radius + random2(-terr, terr);
 	p->xc = 0 + random2(-terr, terr);
-	p->oa = -random2(100, 500);
+	p->oa = random2(100, 500);
 	p->ob = p->oa + random2(-oerr, oerr);
 	p->oc = p->oa + random2(-oerr, oerr);
-	p->probeCount = 8;// + (int) random2(6, 21);
+	p->probeCount = 7 + (int) random2(6, 21);
 
 	for (int i = 0; i < p->probeCount; i++) {
 
@@ -333,11 +312,11 @@ int main(int argc, char *argv[]) {
 	for (int i = 0; i < REPEATS; i++)
 		calibrate();
 
-	printf("\nCalibration finished - used %0.3f seconds of CPU time. \n\n", (double) (clock() - startClock) / CLOCKS_PER_SEC);
+	printf("\nCalibration finished - used %0.3f seconds of CPU time. %i results converged and %i failed \n\n", (double) (clock() - startClock) / CLOCKS_PER_SEC, resultsConverged, resultsFailed);
 
 	for (int i = 0; i < REPEATS; i++)
 		if (results[i] != NULL) {
-			printf("Solution %i error: %.9f\n", i, results[i]->calibError);
+			printf("Solution %i error: %f (%e)\n", i, results[i]->calibError, results[i]->calibError);
 			printDeltaParams(results[i]);
 		}
 
