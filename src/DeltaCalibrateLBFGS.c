@@ -73,6 +73,95 @@ inline Real sqr(Real a) {
 
 static const int varCount = 7;
 
+//Real eval(const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc, Real *g, const int probeCount, const Real probePoints[][3]) {
+inline void forwardKinematic(Real *x, Real *y, const Real ta, const Real tb, const Real tc, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc) {
+
+	Real xb = -xa;
+	Real yb = ya;
+	Real yc = -2*ya;
+
+	Real r2a = -(1-sqr(xsa)-sqr(ysa)) * sqr(ta+oa) + sqr(rod1);
+	Real r2b = -(1-sqr(xsa)-sqr(ysa)) * sqr(tb+ob) + sqr(rod2);
+//	Real r2c = -(1-sqr(xsa)-sqr(ysa)) * sqr(tc+oc) + sqr(rod3);
+
+	Real xaa=xa - ta * xsa;
+	Real xbb=xb - tb * xsb;
+//	Real xcc=xc - tc * xsc;
+	Real yaa=ya - ta * ysa;
+	Real ybb=yb - tb * ysb;
+//	Real ycc=yc - tc * ysc;
+
+	Real xaabb = xaa - xbb;
+	Real yaabb = yaa - ybb;
+	Real x2aabb = sqr(xaabb);
+	Real y2aabb = sqr(yaabb);
+
+	Real ra = sqrt(r2a);
+	Real rb = sqrt(r2b);
+	Real D = -y2aabb * (x2aabb+y2aabb - sqr(ra - rb)) * (x2aabb + y2aabb - sqr(ra + rb));
+	Real sqrD = sqrt(D);
+
+	*x = xaa - xaabb * (r2a - r2b + x2aabb + y2aabb) / 2 * (x2aabb + y2aabb) + sqrD / (x2aabb + y2aabb);
+	*y = yaa - yaabb * (r2a - r2b + x2aabb + y2aabb) / 2 * (x2aabb + y2aabb) + (-xaabb / yaabb) * sqrD / (x2aabb + y2aabb);
+}
+
+inline static Real eval2(Real *g, const int probeCount, const Real probePoints[][3], const Real ta, const Real tb, const Real tc, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc) {
+
+	int i;
+	Real error = 0;
+	for (i = 0; i < 13; i++)
+		g[i] = 0;
+
+	Real x, y;
+	forwardKinematic(&x, &y, ta, tb, tc, rod1, rod2, rod3, xa, ya, xc, xsa, ysa, xsb, ysb, xsc, ysc, oa, ob, oc);
+
+	for (i = 0; i < probeCount; i++) {
+		const Real ta = probePoints[i][0];
+		const Real tb = probePoints[i][1];
+		const Real tc = probePoints[i][2];
+
+		Real D = sqr(tc*ysc+2*ya+y)+sqr(tb*ysb-ya+y)+sqr(ta*ysa-ya+y)+sqr(tc+oc)*(-sqr(ysa)-sqr(xsa)+1)+sqr(tb+ob)*(-sqr(ysa)-sqr(xsa)+1)+sqr(ta+oa)*(-sqr(ysa)-sqr(xsa)+1)+sqr(tc*xsc-xc+x)+sqr(tb*xsb+xa+x)+sqr(ta*xsa-xa+x)-sqr(rod3)-sqr(rod2)-sqr(rod1);
+
+		// error function
+		error += sqr(D);
+		//gradient rod1
+		g[0]  += -4*rod1*(D);
+		//gradient rod2
+		g[1]  += -4*rod2*(D);
+		//gradient rod3
+		g[2]  += -4*rod3*(D);
+
+		//gradient xa
+		g[3]  += 2*(2*(tb*xsb+xa+x)-2*(ta*xsa-xa+x))*(D);
+		//gradient ya
+		g[4]  += 2*(4*(tc*ysc+2*ya+y)-2*(tb*ysb-ya+y)-2*(ta*ysa-ya+y))*(D);
+		//gradient xc
+
+		g[5]  += -4*(tc*xsc-xc+x)*(D);
+		//gradient xsa
+		g[6]  += 2*(2*ta*(ta*xsa-xa+x)-2*sqr(tc+oc)*xsa-2*sqr(tb+ob)*xsa-2*sqr(ta+oa)*xsa)*(D);
+		//gradient ysa
+		g[7]  += 2*(2*ta*(ta*ysa-ya+y)-2*sqr(tc+oc)*ysa-2*sqr(tb+ob)*ysa-2*sqr(ta+oa)*ysa)*(D);
+		//gradient xsb
+		g[8]  += 4*tb*(tb*xsb+xa+x)*(D);
+		//gradient ysb
+		g[9]  += 4*tb*(tb*ysb-ya+y)*(D);
+		//gradient xsc
+		g[10]  += 4*tc*(tc*xsc-xc+x)*(D);
+		//gradient ysc
+		g[11]  += 4*tc*(tc*ysc+2*ya+y)*(D);
+
+		//gradient oa
+		g[12]  += 4*(ta+oa)*(-sqr(ysa)-sqr(xsa)+1)*(D);
+		//gradient ob
+		g[13] += 4*(tb+ob)*(-sqr(ysa)-sqr(xsa)+1)*(D);
+		//gradient oc
+		g[14] += 4*(tc+oc)*(-sqr(ysa)-sqr(xsa)+1)*(D);
+	}
+
+	return error;
+}
+
 inline static Real eval(Real r, Real xa, Real ya, Real xc, Real oa, Real ob, Real oc, Real *g) {
 
 	int i;
@@ -84,6 +173,9 @@ inline static Real eval(Real r, Real xa, Real ya, Real xc, Real oa, Real ob, Rea
 		const Real ta = p.probePoints[i][0];
 		const Real tb = p.probePoints[i][1];
 		const Real tc = p.probePoints[i][2];
+
+//		Real x = -(sqr(tb)+2*ob*tb-sqr(ta)-2*oa*ta+sqr(ob)-sqr(oa))/(4*xa);
+//		Real y = -(6*ya^2+2*xc^2-4*x*xc-2*xa^2+2*tc^2+4*oc*tc-tb^2-2*ob*tb-ta^2-2*oa*ta+2*oc^2-ob^2-oa^2)/(12*ya);
 
 		Real tb22obtbta = (sqr(tb)+2*ob*tb-sqr(ta)-2*oa*ta+sqr(ob)-sqr(oa));
 		Real yaxctb22ob = (6*sqr(ya)+2*sqr(xc)+(tb22obtbta*xc)/xa-2*sqr(xa)+2*sqr(tc)+4*oc*tc-sqr(tb)-2*ob*tb-sqr(ta)-2*oa*ta+2*sqr(oc)-sqr(ob)-sqr(oa));
