@@ -20,6 +20,7 @@ typedef struct {
 	Real oa, ob, oc; // home offsets / limit switches
 	int probeCount;
 	Real probePoints[100][3]; // a list of probed points on the bed in column or motor coordinates
+	Real xsa, ysa, xsb, yxb, xsc, yxc;
 } DeltaParams;
 
 // https://github.com/hercek/Marlin/blob/Marlin_v1/calibration.wxm
@@ -73,8 +74,8 @@ inline Real sqr(Real a) {
 
 static const int varCount = 7;
 
-inline Real solvePoly(Real a, Real b, Real c) {
-	return (sqrt(b * b - 4 * a * c) + b) / (2 * a);
+inline Real solvePolyBC(Real b, Real c) {
+	return (sqrt(b * b - 4 * c) + b) * 0.5;
 }
 
 void inverseKinetmatic(Real *ta, Real *tb, Real *tc, const Real x, const Real y, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc) {
@@ -87,9 +88,9 @@ void inverseKinetmatic(Real *ta, Real *tb, Real *tc, const Real x, const Real y,
 	Real xb = -xa;
 	Real yb = ya;
 	Real yc = -2*ya;
-	*ta = solvePoly(1, -2*oa*sqr(ysa)+(2*y-2*ya)*ysa-2*oa*sqr(xsa)+(2*x-2*xa)*xsa+2*oa, -sqr(oa)*sqr(ysa)+sqr(ya)-2*y*ya+sqr(y)-sqr(oa)*sqr(xsa)+sqr(xa)-2*x*xa+sqr(x)-sqr(rod1)+sqr(oa));
-	*tb = solvePoly(1, -2*ob*sqr(ysb)+(2*y-2*yb)*ysb-2*ob*sqr(xsb)+(2*x-2*xb)*xsb+2*ob, -sqr(ob)*sqr(ysb)+sqr(yb)-2*y*yb+sqr(y)-sqr(ob)*sqr(xsb)+sqr(xb)-2*x*xb+sqr(x)-sqr(rod1)+sqr(ob));
-	*tc = solvePoly(1, -2*oc*sqr(ysc)+(2*y-2*yc)*ysc-2*oc*sqr(xsc)+(2*x-2*xc)*xsc+2*oc, -sqr(oc)*sqr(ysc)+sqr(yc)-2*y*yc+sqr(y)-sqr(oc)*sqr(xsc)+sqr(xc)-2*x*xc+sqr(x)-sqr(rod1)+sqr(oc));
+	*ta = solvePolyBC(-2*oa*sqr(ysa)+(2*y-2*ya)*ysa-2*oa*sqr(xsa)+(2*x-2*xa)*xsa+2*oa, -sqr(oa)*sqr(ysa)+sqr(ya)-2*y*ya+sqr(y)-sqr(oa)*sqr(xsa)+sqr(xa)-2*x*xa+sqr(x)-sqr(rod1)+sqr(oa));
+	*tb = solvePolyBC(-2*ob*sqr(ysb)+(2*y-2*yb)*ysb-2*ob*sqr(xsb)+(2*x-2*xb)*xsb+2*ob, -sqr(ob)*sqr(ysb)+sqr(yb)-2*y*yb+sqr(y)-sqr(ob)*sqr(xsb)+sqr(xb)-2*x*xb+sqr(x)-sqr(rod1)+sqr(ob));
+	*tc = solvePolyBC(-2*oc*sqr(ysc)+(2*y-2*yc)*ysc-2*oc*sqr(xsc)+(2*x-2*xc)*xsc+2*oc, -sqr(oc)*sqr(ysc)+sqr(yc)-2*y*yc+sqr(y)-sqr(oc)*sqr(xsc)+sqr(xc)-2*x*xc+sqr(x)-sqr(rod1)+sqr(oc));
 
 //	*ta=sqrt(sqr(oa)*pow(ysa,4)+(2*oa*ya-2*oa*y)*pow(ysa,3)+
 //	(sqr(ya)-2*y*ya+sqr(y)+2*sqr(oa)*sqr(xsa)+(2*oa*xa-2*oa*x)*xsa-sqr(oa))*sqr(ysa)+
@@ -131,62 +132,63 @@ void forwardKinematic(Real *x, Real *y, const Real ta, const Real tb, const Real
 	*y = yaa - yaabb * (r2a - r2b + x2aabb + y2aabb) / 2 * (x2aabb + y2aabb) + (-xaabb / yaabb) * sqrD / (x2aabb + y2aabb);
 }
 
-inline static Real eval2(Real *g, const int probeCount, const Real probePoints[][3], const Real ta, const Real tb, const Real tc, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc) {
+inline static Real eval2(Real *g, const int probeCount, const Real probePoints[][3], const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real oa, const Real ob, const Real oc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc) {
 
 	int i;
 	Real error = 0;
 	for (i = 0; i < 13; i++)
 		g[i] = 0;
 
-	Real x, y;
-	forwardKinematic(&x, &y, ta, tb, tc, rod1, rod2, rod3, xa, ya, xc, xsa, ysa, xsb, ysb, xsc, ysc, oa, ob, oc);
-
 	for (i = 0; i < probeCount; i++) {
 		const Real ta = probePoints[i][0];
 		const Real tb = probePoints[i][1];
 		const Real tc = probePoints[i][2];
 
-		Real D = sqr(tc*ysc+2*ya+y)+sqr(tb*ysb-ya+y)+sqr(ta*ysa-ya+y)+sqr(tc+oc)*(-sqr(ysa)-sqr(xsa)+1)+sqr(tb+ob)*(-sqr(ysa)-sqr(xsa)+1)+sqr(ta+oa)*(-sqr(ysa)-sqr(xsa)+1)+sqr(tc*xsc-xc+x)+sqr(tb*xsb+xa+x)+sqr(ta*xsa-xa+x)-sqr(rod3)-sqr(rod2)-sqr(rod1);
+		Real x, y;
+		forwardKinematic(&x, &y, ta, tb, tc, rod1, rod2, rod3, xa, ya, xc, xsa, ysa, xsb, ysb, xsc, ysc, oa, ob, oc);
+
+        Real D = sqr(tc*ysc+2*ya+y)+sqr(tc+oc)*(-sqr(ysc)-sqr(xsc)+1)+sqr(tb*ysb-ya+y)+sqr(tb+ob)*(-sqr(ysb)-sqr(xsb)+1)+sqr(ta*ysa-ya+y)+sqr(ta+oa)*(-sqr(ysa)-sqr(xsa)+1)+sqr(tc*xsc-xc+x)+sqr(tb*xsb+xa+x)+sqr(ta*xsa-xa+x)-sqr(rod3)-sqr(rod2)-sqr(rod1);
 
 		// error function
 		error += sqr(D);
 		//gradient rod1
-		g[0]  += -4*rod1*(D);
+		g[0]  += -4*rod1*D;
 		//gradient rod2
-		g[1]  += -4*rod2*(D);
+		g[1]  += -4*rod2*D;
 		//gradient rod3
-		g[2]  += -4*rod3*(D);
+		g[2]  += -4*rod3*D;
 
 		//gradient xa
-		g[3]  += 2*(2*(tb*xsb+xa+x)-2*(ta*xsa-xa+x))*(D);
+		g[3]  += 2*(2*(tb*xsb+xa+x)-2*(ta*xsa-xa+x))*D;
 		//gradient ya
-		g[4]  += 2*(4*(tc*ysc+2*ya+y)-2*(tb*ysb-ya+y)-2*(ta*ysa-ya+y))*(D);
+		g[4]  += 2*(4*(tc*ysc+2*ya+y)-2*(tb*ysb-ya+y)-2*(ta*ysa-ya+y))*D;
 		//gradient xc
-
-		g[5]  += -4*(tc*xsc-xc+x)*(D);
-		//gradient xsa
-		g[6]  += 2*(2*ta*(ta*xsa-xa+x)-2*sqr(tc+oc)*xsa-2*sqr(tb+ob)*xsa-2*sqr(ta+oa)*xsa)*(D);
-		//gradient ysa
-		g[7]  += 2*(2*ta*(ta*ysa-ya+y)-2*sqr(tc+oc)*ysa-2*sqr(tb+ob)*ysa-2*sqr(ta+oa)*ysa)*(D);
-		//gradient xsb
-		g[8]  += 4*tb*(tb*xsb+xa+x)*(D);
-		//gradient ysb
-		g[9]  += 4*tb*(tb*ysb-ya+y)*(D);
-		//gradient xsc
-		g[10]  += 4*tc*(tc*xsc-xc+x)*(D);
-		//gradient ysc
-		g[11]  += 4*tc*(tc*ysc+2*ya+y)*(D);
+		g[5]  += -4*(tc*xsc-xc+x)*D;
 
 		//gradient oa
-		g[12]  += 4*(ta+oa)*(-sqr(ysa)-sqr(xsa)+1)*(D);
+		g[12] += 4*(ta+oa)*(-sqr(ysa)-sqr(xsa)+1)*D;
 		//gradient ob
-		g[13] += 4*(tb+ob)*(-sqr(ysa)-sqr(xsa)+1)*(D);
+		g[13] += 4*(tb+ob)*(-sqr(ysb)-sqr(xsb)+1)*D;
 		//gradient oc
-		g[14] += 4*(tc+oc)*(-sqr(ysa)-sqr(xsa)+1)*(D);
+		g[14] += 4*(tc+oc)*(-sqr(ysc)-sqr(xsc)+1)*D;
+
+		//gradient xsa
+		g[6]  += 2*(2*ta*(ta*xsa-xa+x)-2*sqr(ta+oa)*xsa)*D;
+		//gradient ysa
+		g[7]  += 2*(2*ta*(ta*ysa-ya+y)-2*sqr(ta+oa)*ysa)*D;
+		//gradient xsb
+		g[8]  += 2*(2*tb*(tb*xsb+xa+x)-2*sqr(tb+ob)*xsb)*D;
+		//gradient ysb
+		g[9]  += 2*(2*tb*(tb*ysb-ya+y)-2*sqr(tb+ob)*ysb)*D;
+		//gradient xsc
+		g[10] += 2*(2*tc*(tc*xsc-xc+x)-2*sqr(tc+oc)*xsc)*D;
+		//gradient ysc
+		g[11] += 2*(2*tc*(tc*ysc+2*ya+y)-2*sqr(tc+oc)*ysc)*D;
 	}
 
 	return error;
 }
+
 
 inline static Real eval(Real r, Real xa, Real ya, Real xc, Real oa, Real ob, Real oc, Real *g) {
 
@@ -234,9 +236,10 @@ inline static Real eval(Real r, Real xa, Real ya, Real xc, Real oa, Real ob, Rea
 }
 
 static Real evaluate(void *instance, const Real *x, Real *g, const int n, const Real step) {
-
-	Real fx = eval(x[0], x[1], x[2], x[3], x[4], x[5], x[6], g);
-	return fx;
+	if (n == 7)
+		return eval(x[0], x[1], x[2], x[3], x[4], x[5], x[6], g);
+	else
+		return eval2(g, p.probeCount, p.probePoints, x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10], x[11], x[12], x[13], x[14]);
 }
 
 static int progress(void *instance, const Real *x, const Real *g, const Real fx, const Real xnorm, const Real gnorm, const Real step, int n, int k, int ls) {
