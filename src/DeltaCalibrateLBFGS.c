@@ -73,12 +73,38 @@ inline Real sqr(Real a) {
 
 static const int varCount = 7;
 
-//Real eval(const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc, Real *g, const int probeCount, const Real probePoints[][3]) {
-inline void forwardKinematic(Real *x, Real *y, const Real ta, const Real tb, const Real tc, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc) {
+inline Real solvePoly(Real a, Real b, Real c) {
+	return (sqrt(b * b - 4 * a * c) + b) / (2 * a);
+}
+
+void inverseKinetmatic(Real *ta, Real *tb, Real *tc, const Real x, const Real y, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc) {
+
+	// solve the polynomial for ta, tb, tc
+	//	ta^2 + ta*(-2*oa*ysa^2+(-2*ya+2*y)*ysa-2*oa*xsa^2+(-2*xa+2*x)*xsa+2*oa) - oa^2*ysa^2+ya^2-2*y*ya+y^2-oa^2*xsa^2+xa^2-2*x*xa+x^2-rod1^2+oa^2 = 0
+	//	tb^2 + tb*(-2*ob*ysb^2+(-2*ya+2*y)*ysb-2*ob*xsb^2+(2*xa+2*x)*xsb+2*ob) - ob^2*ysb^2+ya^2-2*y*ya+y^2-ob^2*xsb^2+xa^2+2*x*xa+x^2-rod2^2+ob^2 = 0
+	//	tc^2 + tc*(-2*oc*ysc^2+(4*ya+2*y)*ysc-2*oc*xsc^2+(-2*xc+2*x)*xsc+2*oc) - oc^2*ysc^2+4*ya^2+4*y*ya+y^2-oc^2*xsc^2+xc^2-2*x*xc+x^2-rod3^2+oc^2 = 0
 
 	Real xb = -xa;
 	Real yb = ya;
 	Real yc = -2*ya;
+	*ta = solvePoly(1, -2*oa*sqr(ysa)+(2*y-2*ya)*ysa-2*oa*sqr(xsa)+(2*x-2*xa)*xsa+2*oa, -sqr(oa)*sqr(ysa)+sqr(ya)-2*y*ya+sqr(y)-sqr(oa)*sqr(xsa)+sqr(xa)-2*x*xa+sqr(x)-sqr(rod1)+sqr(oa));
+	*tb = solvePoly(1, -2*ob*sqr(ysb)+(2*y-2*yb)*ysb-2*ob*sqr(xsb)+(2*x-2*xb)*xsb+2*ob, -sqr(ob)*sqr(ysb)+sqr(yb)-2*y*yb+sqr(y)-sqr(ob)*sqr(xsb)+sqr(xb)-2*x*xb+sqr(x)-sqr(rod1)+sqr(ob));
+	*tc = solvePoly(1, -2*oc*sqr(ysc)+(2*y-2*yc)*ysc-2*oc*sqr(xsc)+(2*x-2*xc)*xsc+2*oc, -sqr(oc)*sqr(ysc)+sqr(yc)-2*y*yc+sqr(y)-sqr(oc)*sqr(xsc)+sqr(xc)-2*x*xc+sqr(x)-sqr(rod1)+sqr(oc));
+
+//	*ta=sqrt(sqr(oa)*pow(ysa,4)+(2*oa*ya-2*oa*y)*pow(ysa,3)+
+//	(sqr(ya)-2*y*ya+sqr(y)+2*sqr(oa)*sqr(xsa)+(2*oa*xa-2*oa*x)*xsa-sqr(oa))*sqr(ysa)+
+//	((2*oa*sqr(xsa)+(2*xa-2*x)*xsa-2*oa)*ya+(-2*oa*sqr(xsa)+(2*x-2*xa)*xsa+2*oa)*y)*ysa-sqr(ya)+2*y*ya-sqr(y)+sqr(oa)*
+//	pow(xsa,4)+(2*oa*xa-2*oa*x)*pow(xsa,3)+(sqr(xa)-2*x*xa+sqr(x)-sqr(oa))*sqr(xsa)+(2*oa*x-2*oa*xa)*xsa-sqr(xa)+2*x*xa-
+//	sqr(x)+sqr(rod1)) + oa*sqr(ysa)+(ya-y)*ysa+oa*sqr(xsa)+(xa-x)*xsa-oa;
+
+}
+
+//Real eval(const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc, Real *g, const int probeCount, const Real probePoints[][3]) {
+void forwardKinematic(Real *x, Real *y, const Real ta, const Real tb, const Real tc, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc) {
+
+	Real xb = -xa;
+	Real yb = ya;
+//	Real yc = -2*ya;
 
 	Real r2a = -(1-sqr(xsa)-sqr(ysa)) * sqr(ta+oa) + sqr(rod1);
 	Real r2b = -(1-sqr(xsa)-sqr(ysa)) * sqr(tb+ob) + sqr(rod2);
