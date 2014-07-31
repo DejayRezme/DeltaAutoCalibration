@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include "lbfgs.h"
 
@@ -20,7 +21,7 @@ typedef struct {
 	Real oa, ob, oc; // home offsets / limit switches
 	int probeCount;
 	Real probePoints[100][3]; // a list of probed points on the bed in column or motor coordinates
-	Real xsa, ysa, xsb, yxb, xsc, yxc;
+	Real xsa, ysa, xsb, ysb, xsc, ysc;
 } DeltaParams;
 
 // https://github.com/hercek/Marlin/blob/Marlin_v1/calibration.wxm
@@ -41,7 +42,8 @@ DeltaParams p = { // probe values from original maxima worksheet
 		{127.96, 233.20, 232.52},
 		{170.82, 170.82, 258.62},
 		{233.19, 127.95, 233.80}
-	}
+	},
+	0, 0, 0, 0, 0, 0
 };
 
 //DeltaParams p = { // Dejay's probe values from Kossel Mini, I think they are wrong?
@@ -68,47 +70,63 @@ inline Real max(Real a, Real b) {
 	return a > b ? a : b;
 }
 
-inline Real sqr(Real a) {
+Real sqr(Real a) {
 	return a*a;
 }
 
-static const int varCount = 7;
+//static const int varCount = 7;
 
-inline Real solvePolyBC(Real b, Real c) {
-	return (sqrt(b * b - 4 * c) + b) * 0.5;
+Real solvePolyBC(Real b, Real c) {
+//	return -(sqrt(b * b + 4 * c) - b) * 0.5;
+	return (sqrt(b * b - 4 * c) - b) * 0.5;
 }
 
-void inverseKinetmatic(Real *ta, Real *tb, Real *tc, const Real x, const Real y, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc) {
-
+void inverseKinetmatic(Real *ta, Real *tb, Real *tc, const Real x, const Real y, const Real z, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real oa, const Real ob, const Real oc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc) {
 	// solve the polynomial for ta, tb, tc
 	//	ta^2 + ta*(-2*oa*ysa^2+(-2*ya+2*y)*ysa-2*oa*xsa^2+(-2*xa+2*x)*xsa+2*oa) - oa^2*ysa^2+ya^2-2*y*ya+y^2-oa^2*xsa^2+xa^2-2*x*xa+x^2-rod1^2+oa^2 = 0
 	//	tb^2 + tb*(-2*ob*ysb^2+(-2*ya+2*y)*ysb-2*ob*xsb^2+(2*xa+2*x)*xsb+2*ob) - ob^2*ysb^2+ya^2-2*y*ya+y^2-ob^2*xsb^2+xa^2+2*x*xa+x^2-rod2^2+ob^2 = 0
 	//	tc^2 + tc*(-2*oc*ysc^2+(4*ya+2*y)*ysc-2*oc*xsc^2+(-2*xc+2*x)*xsc+2*oc) - oc^2*ysc^2+4*ya^2+4*y*ya+y^2-oc^2*xsc^2+xc^2-2*x*xc+x^2-rod3^2+oc^2 = 0
 
-	Real xb = -xa;
-	Real yb = ya;
-	Real yc = -2*ya;
+//	Real xb = -xa;
+//	Real yb = ya;
+//	Real yc = -2*ya;
 	*ta = solvePolyBC(-2*oa*sqr(ysa)+(2*y-2*ya)*ysa-2*oa*sqr(xsa)+(2*x-2*xa)*xsa+2*oa, -sqr(oa)*sqr(ysa)+sqr(ya)-2*y*ya+sqr(y)-sqr(oa)*sqr(xsa)+sqr(xa)-2*x*xa+sqr(x)-sqr(rod1)+sqr(oa));
-	*tb = solvePolyBC(-2*ob*sqr(ysb)+(2*y-2*yb)*ysb-2*ob*sqr(xsb)+(2*x-2*xb)*xsb+2*ob, -sqr(ob)*sqr(ysb)+sqr(yb)-2*y*yb+sqr(y)-sqr(ob)*sqr(xsb)+sqr(xb)-2*x*xb+sqr(x)-sqr(rod1)+sqr(ob));
-	*tc = solvePolyBC(-2*oc*sqr(ysc)+(2*y-2*yc)*ysc-2*oc*sqr(xsc)+(2*x-2*xc)*xsc+2*oc, -sqr(oc)*sqr(ysc)+sqr(yc)-2*y*yc+sqr(y)-sqr(oc)*sqr(xsc)+sqr(xc)-2*x*xc+sqr(x)-sqr(rod1)+sqr(oc));
+	*tb = solvePolyBC(-2*ob*sqr(ysb)+(2*y-2*ya)*ysb-2*ob*sqr(xsb)+(2*xa+2*x)*xsb+2*ob, -sqr(ob)*sqr(ysb)+sqr(ya)-2*y*ya+sqr(y)-sqr(ob)*sqr(xsb)+sqr(xa)+2*x*xa+sqr(x)-sqr(rod2)+sqr(ob));
+	*tc = solvePolyBC(-2*oc*sqr(ysc)+(4*ya+2*y)*ysc-2*oc*sqr(xsc)+(2*x-2*xc)*xsc+2*oc, -sqr(oc)*sqr(ysc)+4*sqr(ya)+4*y*ya+sqr(y)-sqr(oc)*sqr(xsc)+sqr(xc)-2*x*xc+sqr(x)-sqr(rod3)+sqr(oc));
 
-//	*ta=sqrt(sqr(oa)*pow(ysa,4)+(2*oa*ya-2*oa*y)*pow(ysa,3)+
+//	printf("ta: %f  tb: %f  tc: %f +++++++\n", *ta, *tb, *tc);
+//
+//	*ta = -sqrt(sqr(oa)*pow(ysa,4)+(2*oa*ya-2*oa*y)*pow(ysa,3)+
 //	(sqr(ya)-2*y*ya+sqr(y)+2*sqr(oa)*sqr(xsa)+(2*oa*xa-2*oa*x)*xsa-sqr(oa))*sqr(ysa)+
 //	((2*oa*sqr(xsa)+(2*xa-2*x)*xsa-2*oa)*ya+(-2*oa*sqr(xsa)+(2*x-2*xa)*xsa+2*oa)*y)*ysa-sqr(ya)+2*y*ya-sqr(y)+sqr(oa)*
 //	pow(xsa,4)+(2*oa*xa-2*oa*x)*pow(xsa,3)+(sqr(xa)-2*x*xa+sqr(x)-sqr(oa))*sqr(xsa)+(2*oa*x-2*oa*xa)*xsa-sqr(xa)+2*x*xa-
-//	sqr(x)+sqr(rod1)) + oa*sqr(ysa)+(ya-y)*ysa+oa*sqr(xsa)+(xa-x)*xsa-oa;
-
+//	sqr(x)+sqr(rod1))+oa*sqr(ysa)+(ya-y)*ysa+oa*sqr(xsa)+(xa-x)*xsa-oa;
+//
+//	*tb = -sqrt(sqr(ob)*pow(ysb,4)+(2*ob*ya-2*ob*y)*pow(ysb,3)+
+//	(sqr(ya)-2*y*ya+sqr(y)+2*sqr(ob)*sqr(xsb)+(-2*ob*xa-2*ob*x)*xsb-sqr(ob))*sqr(ysb)+
+//	((2*ob*sqr(xsb)+(-2*xa-2*x)*xsb-2*ob)*ya+(-2*ob*sqr(xsb)+(2*xa+2*x)*xsb+2*ob)*y)*ysb-sqr(ya)+2*y*ya-sqr(y)+sqr(ob)*
+//	pow(xsb,4)+(-2*ob*xa-2*ob*x)*pow(xsb,3)+(sqr(xa)+2*x*xa+sqr(x)-sqr(ob))*sqr(xsb)+(2*ob*xa+2*ob*x)*xsb-sqr(xa)-2*x*xa
+//	-sqr(x)+sqr(rod2))+ob*sqr(ysb)+(ya-y)*ysb+ob*sqr(xsb)+(-xa-x)*xsb-ob;
+//
+//	*tc = -sqrt(sqr(oc)*pow(ysc,4)+(-4*oc*ya-2*oc*y)*pow(ysc,3)+
+//	(4*sqr(ya)+4*y*ya+sqr(y)+2*sqr(oc)*sqr(xsc)+(2*oc*xc-2*oc*x)*xsc-sqr(oc))*sqr(ysc)+
+//	((-4*oc*sqr(xsc)+(4*x-4*xc)*xsc+4*oc)*ya+(-2*oc*sqr(xsc)+(2*x-2*xc)*xsc+2*oc)*y)*ysc-4*sqr(ya)-4*y*ya-sqr(y)+sqr(oc)*
+//	pow(xsc,4)+(2*oc*xc-2*oc*x)*pow(xsc,3)+(sqr(xc)-2*x*xc+sqr(x)-sqr(oc))*sqr(xsc)+(2*oc*x-2*oc*xc)*xsc-sqr(xc)+2*x*xc-
+//	sqr(x)+sqr(rod3))+oc*sqr(ysc)+(-2*ya-y)*ysc+oc*sqr(xsc)+(xc-x)*xsc-oc;
+//
+//	printf("ta: %f  tb: %f  tc: %f   --------\n", *ta, *tb, *tc);
 }
 
-//Real eval(const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc, Real *g, const int probeCount, const Real probePoints[][3]) {
-void forwardKinematic(Real *x, Real *y, const Real ta, const Real tb, const Real tc, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc) {
+#define PLYPSILON 0.00000000001
 
+//Real eval(const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc, const Real oa, const Real ob, const Real oc, Real *g, const int probeCount, const Real probePoints[][3]) {
+void forwardKinematic(Real *x, Real *y, const Real ta, const Real tb, const Real tc, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real oa, const Real ob, const Real oc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc) {
 	Real xb = -xa;
 	Real yb = ya;
 //	Real yc = -2*ya;
 
 	Real r2a = -(1-sqr(xsa)-sqr(ysa)) * sqr(ta+oa) + sqr(rod1);
-	Real r2b = -(1-sqr(xsa)-sqr(ysa)) * sqr(tb+ob) + sqr(rod2);
+	Real r2b = -(1-sqr(xsb)-sqr(ysb)) * sqr(tb+ob) + sqr(rod2);
 //	Real r2c = -(1-sqr(xsa)-sqr(ysa)) * sqr(tc+oc) + sqr(rod3);
 
 	Real xaa=xa - ta * xsa;
@@ -120,6 +138,14 @@ void forwardKinematic(Real *x, Real *y, const Real ta, const Real tb, const Real
 
 	Real xaabb = xaa - xbb;
 	Real yaabb = yaa - ybb;
+	if (abs(xaabb) <= PLYPSILON) {
+		if (xaabb <= PLYPSILON) xaabb = PLYPSILON;
+		if (xaabb >= -PLYPSILON) xaabb = -PLYPSILON;
+	}
+	if (abs(yaabb) <= PLYPSILON) {
+		if (yaabb <= PLYPSILON) yaabb = PLYPSILON;
+		if (yaabb >= -PLYPSILON) yaabb = -PLYPSILON;
+	}
 	Real x2aabb = sqr(xaabb);
 	Real y2aabb = sqr(yaabb);
 
@@ -127,16 +153,20 @@ void forwardKinematic(Real *x, Real *y, const Real ta, const Real tb, const Real
 	Real rb = sqrt(r2b);
 	Real D = -y2aabb * (x2aabb+y2aabb - sqr(ra - rb)) * (x2aabb + y2aabb - sqr(ra + rb));
 	Real sqrD = sqrt(D);
+	Real inv2xy2aabb;
+	if (abs((x2aabb + y2aabb)) > PLYPSILON)
+		inv2xy2aabb = 1 / (2 * (x2aabb + y2aabb));
+	else
+		inv2xy2aabb = 0;
 
-	*x = xaa - xaabb * (r2a - r2b + x2aabb + y2aabb) / 2 * (x2aabb + y2aabb) + sqrD / (x2aabb + y2aabb);
-	*y = yaa - yaabb * (r2a - r2b + x2aabb + y2aabb) / 2 * (x2aabb + y2aabb) + (-xaabb / yaabb) * sqrD / (x2aabb + y2aabb);
+	*x = xaa - (xaabb * (r2a - r2b + x2aabb + y2aabb) + sqrD) * inv2xy2aabb;
+	*y = yaa - (yaabb * (r2a - r2b + x2aabb + y2aabb) + (-xaabb / yaabb) * sqrD) * inv2xy2aabb;
 }
 
-inline static Real eval2(Real *g, const int probeCount, const Real probePoints[][3], const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real oa, const Real ob, const Real oc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc) {
-
+inline static Real eval2(Real *g, const int probeCount, Real probePoints[][3], const Real rod1, const Real xa, const Real ya, const Real xc, const Real oa, const Real ob, const Real oc, const Real rod2, const Real rod3, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc) {
 	int i;
 	Real error = 0;
-	for (i = 0; i < 13; i++)
+	for (i = 0; i < 15; i++)
 		g[i] = 0;
 
 	for (i = 0; i < probeCount; i++) {
@@ -145,45 +175,52 @@ inline static Real eval2(Real *g, const int probeCount, const Real probePoints[]
 		const Real tc = probePoints[i][2];
 
 		Real x, y;
-		forwardKinematic(&x, &y, ta, tb, tc, rod1, rod2, rod3, xa, ya, xc, xsa, ysa, xsb, ysb, xsc, ysc, oa, ob, oc);
+		forwardKinematic(&x, &y, ta, tb, tc, rod1, rod2, rod3, xa, ya, xc, oa, ob, oc, xsa, ysa, xsb, ysb, xsc, ysc);
 
-        Real D = sqr(tc*ysc+2*ya+y)+sqr(tc+oc)*(-sqr(ysc)-sqr(xsc)+1)+sqr(tb*ysb-ya+y)+sqr(tb+ob)*(-sqr(ysb)-sqr(xsb)+1)+sqr(ta*ysa-ya+y)+sqr(ta+oa)*(-sqr(ysa)-sqr(xsa)+1)+sqr(tc*xsc-xc+x)+sqr(tb*xsb+xa+x)+sqr(ta*xsa-xa+x)-sqr(rod3)-sqr(rod2)-sqr(rod1);
+		Real D = sqr(tc*ysc+2*ya+y)+sqr(tc+oc)*(-sqr(ysc)-sqr(xsc)+1)+sqr(tb*ysb-ya+y)+sqr(tb+ob)*(-sqr(ysb)-sqr(xsb)+1)+sqr(ta*ysa-ya+y)+sqr(ta+oa)*(-sqr(ysa)-sqr(xsa)+1)+sqr(tc*xsc-xc+x)+sqr(tb*xsb+xa+x)+sqr(ta*xsa-xa+x)-sqr(rod3)-sqr(rod2)-sqr(rod1);
+		printf("ta: %f  tb: %f  tc: %f  (eval2) \n", ta, tb, tc);
+		printf("x: %f  y: %f  D:%f  (eval2) \n", x, y, D);
 
 		// error function
 		error += sqr(D);
 		//gradient rod1
 		g[0]  += -4*rod1*D;
-		//gradient rod2
-		g[1]  += -4*rod2*D;
-		//gradient rod3
-		g[2]  += -4*rod3*D;
 
 		//gradient xa
-		g[3]  += 2*(2*(tb*xsb+xa+x)-2*(ta*xsa-xa+x))*D;
+		g[1]  += 2*(2*(tb*xsb+xa+x)-2*(ta*xsa-xa+x))*D;
 		//gradient ya
-		g[4]  += 2*(4*(tc*ysc+2*ya+y)-2*(tb*ysb-ya+y)-2*(ta*ysa-ya+y))*D;
+		g[2]  += 2*(4*(tc*ysc+2*ya+y)-2*(tb*ysb-ya+y)-2*(ta*ysa-ya+y))*D;
 		//gradient xc
-		g[5]  += -4*(tc*xsc-xc+x)*D;
+		g[3]  += -4*(tc*xsc-xc+x)*D;
 
 		//gradient oa
-		g[12] += 4*(ta+oa)*(-sqr(ysa)-sqr(xsa)+1)*D;
+		g[4] += 4*(ta+oa)*(-sqr(ysa)-sqr(xsa)+1)*D;
 		//gradient ob
-		g[13] += 4*(tb+ob)*(-sqr(ysb)-sqr(xsb)+1)*D;
+		g[5] += 4*(tb+ob)*(-sqr(ysb)-sqr(xsb)+1)*D;
 		//gradient oc
-		g[14] += 4*(tc+oc)*(-sqr(ysc)-sqr(xsc)+1)*D;
+		g[6] += 4*(tc+oc)*(-sqr(ysc)-sqr(xsc)+1)*D;
+
+		//gradient rod2
+		g[7]  += -4*rod2*D;
+		//gradient rod3
+		g[8]  += -4*rod3*D;
 
 		//gradient xsa
-		g[6]  += 2*(2*ta*(ta*xsa-xa+x)-2*sqr(ta+oa)*xsa)*D;
+		g[9]  += 2*(2*ta*(ta*xsa-xa+x)-2*sqr(ta+oa)*xsa)*D;
 		//gradient ysa
-		g[7]  += 2*(2*ta*(ta*ysa-ya+y)-2*sqr(ta+oa)*ysa)*D;
+		g[10]  += 2*(2*ta*(ta*ysa-ya+y)-2*sqr(ta+oa)*ysa)*D;
 		//gradient xsb
-		g[8]  += 2*(2*tb*(tb*xsb+xa+x)-2*sqr(tb+ob)*xsb)*D;
+		g[11]  += 2*(2*tb*(tb*xsb+xa+x)-2*sqr(tb+ob)*xsb)*D;
 		//gradient ysb
-		g[9]  += 2*(2*tb*(tb*ysb-ya+y)-2*sqr(tb+ob)*ysb)*D;
+		g[12]  += 2*(2*tb*(tb*ysb-ya+y)-2*sqr(tb+ob)*ysb)*D;
 		//gradient xsc
-		g[10] += 2*(2*tc*(tc*xsc-xc+x)-2*sqr(tc+oc)*xsc)*D;
+		g[13] += 2*(2*tc*(tc*xsc-xc+x)-2*sqr(tc+oc)*xsc)*D;
 		//gradient ysc
-		g[11] += 2*(2*tc*(tc*ysc+2*ya+y)-2*sqr(tc+oc)*ysc)*D;
+		g[14] += 2*(2*tc*(tc*ysc+2*ya+y)-2*sqr(tc+oc)*ysc)*D;
+
+		for (int i = 0; i < 15; i++)
+			printf ("g[%i] = %f  ", i, g[i]);
+		printf("\n");
 	}
 
 	return error;
@@ -194,7 +231,7 @@ inline static Real eval(Real r, Real xa, Real ya, Real xc, Real oa, Real ob, Rea
 
 	int i;
 	Real value = 0;
-	for (i = 0; i < varCount; i++)
+	for (i = 0; i < 7; i++)
 		g[i] = 0;
 
 	for (i = 0; i < p.probeCount; i++) {
@@ -242,7 +279,7 @@ static Real evaluate(void *instance, const Real *x, Real *g, const int n, const 
 		return eval2(g, p.probeCount, p.probePoints, x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10], x[11], x[12], x[13], x[14]);
 }
 
-static int progress(void *instance, const Real *x, const Real *g, const Real fx, const Real xnorm, const Real gnorm, const Real step, int n, int k, int ls) {
+int progress(void *instance, const Real *x, const Real *g, const Real fx, const Real xnorm, const Real gnorm, const Real step, int n, int k, int ls) {
 	printf("Iteration %d:\n", k);
 	printf("  fx = %f, x[0] = %f, x[1] = %f, x[2] = %f, x[3] = %f, x[4] = %f, x[5] = %f, x[6] = %f\n", fx, x[0], x[1], x[2], x[3], x[4], x[5], x[6]);
 	printf("  xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
@@ -273,17 +310,18 @@ static int shmequal(Real a, Real b) {
 	return abs(a - b) < 0.000001;
 }
 
-#define REPEATS 1000
-DeltaParams *results[REPEATS];
+int repeats = 100;
+DeltaParams *results[1000];
 int resultsFailed = 0;
 int resultsConverged = 0;
 
 static int calibrate() {
 
+	int varCount = 7;
+
 	int ret = 0;
 	Real fx;
 	Real *x = lbfgs_malloc(varCount);
-	lbfgs_parameter_t param;
 
 	if (x == NULL) {
 		printf("ERROR: Failed to allocate a memory block for variables.\n");
@@ -291,13 +329,31 @@ static int calibrate() {
 	}
 
 	/* Initialize the variables. */
-	x[0] = p.rod;
-	x[1] = p.xa;
-	x[2] = p.ya;
-	x[3] = p.xc;
-	x[4] = p.oa;
-	x[5] = p.ob;
-	x[6] = p.oc;
+	if (varCount == 7) {
+		x[0]  = p.rod;
+		x[1]  = p.xa;
+		x[2]  = p.ya;
+		x[3]  = p.xc;
+		x[4]  = p.oa;
+		x[5]  = p.ob;
+		x[6]  = p.oc;
+	} else {
+		x[0]  = p.rod;
+		x[1]  = p.xa;
+		x[2]  = p.ya;
+		x[3]  = p.xc;
+		x[4]  = p.oa;
+		x[5]  = p.ob;
+		x[6]  = p.oc;
+		x[7]  = p.rod2;
+		x[8]  = p.rod3;
+		x[9]  = p.xsa;
+		x[10] = p.ysa;
+		x[11] = p.xsb;
+		x[12] = p.ysb;
+		x[13] = p.xsc;
+		x[14] = p.ysc;
+	}
 
 	// randomize starting values to exhaust search space
 	for (int i = 0; i < varCount; i++)
@@ -309,17 +365,15 @@ static int calibrate() {
 //	printf("  x[0] = %f, x[1] = %f, x[2] = %f, x[3] = %f, x[4] = %f, x[5] = %f, x[6] = %f\n", x[0], x[1], x[2], x[3], x[4], x[5], x[6]);
 
 	/* Initialize the parameters for the L-BFGS optimization. */
+	lbfgs_parameter_t param;
 	lbfgs_parameter_init(&param);
 //	param.linesearch = LBFGS_LINESEARCH_BACKTRACKING;
 //	param.epsilon = 0.01;
 
-	/*
-	 Start the L-BFGS optimization; this will invoke the callback functions
-	 evaluate() and progress() when necessary.
-	 */
+	// Start the L-BFGS optimization; this will invoke the callback functions evaluate() and progress() when necessary.
 	ret = lbfgs(varCount, x, &fx, evaluate, NULL, NULL, &param);
 
-	/* Report the result. */
+	// Report the result.
 //	printf("LBFGS error: %f   status: %s\n", fx, lbfgs_errorString(ret));
 	if (ret == LBFGS_SUCCESS) {
 		resultsConverged++;
@@ -338,14 +392,14 @@ static int calibrate() {
 		r->oc = x[6];
 //		r->probeCount =
 
-		for (int i = 0; i < REPEATS; i++) {
+		for (int i = 0; i < repeats; i++) {
 			if (results[i] == NULL) {
 				results[i] = r;
 				break;
 			} else if (shmequal(results[i]->calibError, r->calibError) && shmequal(results[i]->rod, r->rod)) {
 				break;
 			} else if (results[i]->calibError > r->calibError) {
-				for (int o = REPEATS - 1; o > i; o--) // make space and bubble up
+				for (int o = repeats - 1; o > i; o--) // make space and bubble up
 					results[o] = results[o-1];
 				results[i] = r;
 				break;
@@ -360,32 +414,31 @@ static int calibrate() {
 }
 
 
-
-
-Real asqrt(Real a) {
-//	if (a > 0)
-		return sqrt(a);
-//	else
-//		return -sqrt(-a);
-}
-
 static DeltaParams* generateDummyDelta(DeltaParams* p) {
 
-	Real psca = 1; // probe x/y scatter
+	Real psca = 0; // probe x/y scatter
 	Real perr = 0.1; // probe z error
-	Real terr = 1; // tower error
+	Real terr = 1; // tower position error
+	Real serr = 0; // tower skew error
 	Real oerr = 1; // endstop offset error
 	Real x, y, z = 0;
+	Real ta, tb, tc;
 
 	p->delta_radius = random2(50, 500);
 	p->rod = p->rod2 = p->rod3 = p->delta_radius * random2(2.01, 2.3);
 	p->xa = sin(240 * PI / 180) * p->delta_radius + random2(-terr, terr);
 	p->ya = cos(240 * PI / 180) * p->delta_radius + random2(-terr, terr);
 	p->xc = 0 + random2(-terr, terr);
-	p->oa = random2(100, 500);
+	p->oa = random2(200, 500);
 	p->ob = p->oa + random2(-oerr, oerr);
 	p->oc = p->oa + random2(-oerr, oerr);
 	p->probeCount = 7 + (int) random2(6, 21);
+	p->xsa = random2(-serr, +serr);
+	p->ysa = random2(-serr, +serr);
+	p->xsb = random2(-serr, +serr);
+	p->ysb = random2(-serr, +serr);
+	p->xsc = random2(-serr, +serr);
+	p->ysc = random2(-serr, +serr);
 
 	for (int i = 0; i < p->probeCount; i++) {
 
@@ -407,12 +460,23 @@ static DeltaParams* generateDummyDelta(DeltaParams* p) {
 //		printf("%f, %f\n", x, y);
 
 
-//		z = random2(-perr, perr); // generate a bit of probe error or bed level error for the Z value
+		z = random2(-perr, perr); // generate a bit of probe error or bed level error for the Z value
 //		z += x * 0.01; // add some tilt
 
-		p->probePoints[i][0] = asqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) + 2 * x * p->xa - sqr(x) + sqr(p->rod))) - p->oa;
-		p->probePoints[i][1] = asqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) - 2 * x * p->xa - sqr(x) + sqr(p->rod2))) - p->ob;
-		p->probePoints[i][2] = asqrt((z - 4 * sqr(p->ya) - 4 * y * p->ya - sqr(y) - sqr(p->xc) + 2 * x * p->xc - sqr(x) + sqr(p->rod3))) - p->oc;
+//		printf("x: %f  y: %f  z: %f generated\n", x, y, z);
+//		inverseKinetmatic(&ta, &tb, &tc, x, y, z, p->rod, p->rod2, p->rod3, p->xa, p->ya, p->xc, p->oa, p->ob, p->oc, p->xsa, p->ysa, p->xsb, p->ysb, p->xsc, p->ysc);
+//		printf("ta: %f  tb: %f  tc: %f\n", ta, tb, tc);
+//		forwardKinematic(&x, &y, ta, tb, tc, p->rod, p->rod2, p->rod3, p->xa, p->ya, p->xc, p->oa, p->ob, p->oc, p->xsa, p->ysa, p->xsb, p->ysb, p->xsc, p->ysc);
+//		printf("x: %f  y: %f  z: %f forward\n", x, y, z);
+
+		ta = sqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) + 2 * x * p->xa - sqr(x) + sqr(p->rod))) - p->oa;
+		tb = sqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) - 2 * x * p->xa - sqr(x) + sqr(p->rod2))) - p->ob;
+		tc = sqrt((z - 4 * sqr(p->ya) - 4 * y * p->ya - sqr(y) - sqr(p->xc) + 2 * x * p->xc - sqr(x) + sqr(p->rod3))) - p->oc;
+//		printf("%f %f %f\n", p->probePoints[i][0], p->probePoints[i][1], p->probePoints[i][2]);
+
+		p->probePoints[i][0] = ta;
+		p->probePoints[i][1] = tb;
+		p->probePoints[i][2] = tc;
 	}
 
 	return p;
@@ -420,8 +484,13 @@ static DeltaParams* generateDummyDelta(DeltaParams* p) {
 
 int main(int argc, char *argv[]) {
 
+	repeats = 1000;
+
 	// initialize random seed
-	srand((unsigned)time(NULL));
+	struct timeval time;
+	gettimeofday(&time,NULL);
+	srand((time.tv_sec * 1000) + (time.tv_usec / 1000));
+//	srand((unsigned)time(NULL));
 
 	// generate randomized delta
 	generateDummyDelta(&p);
@@ -430,12 +499,12 @@ int main(int argc, char *argv[]) {
 	printDeltaParams(&p);
 
 	clock_t startClock = clock();
-	for (int i = 0; i < REPEATS; i++)
+	for (int i = 0; i < repeats; i++)
 		calibrate();
 
 	printf("\nCalibration finished - used %0.3f seconds of CPU time. %i results converged and %i failed \n\n", (double) (clock() - startClock) / CLOCKS_PER_SEC, resultsConverged, resultsFailed);
 
-	for (int i = 0; i < REPEATS; i++)
+	for (int i = 0; i < repeats; i++)
 		if (results[i] != NULL) {
 			printf("Solution %i error: %f (%e)\n", i, results[i]->calibError, results[i]->calibError);
 			printDeltaParams(results[i]);
