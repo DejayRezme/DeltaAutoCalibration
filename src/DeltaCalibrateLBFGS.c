@@ -81,7 +81,7 @@ Real solvePolyBC(Real b, Real c) {
 	return (sqrt(b * b - 4 * c) - b) * 0.5;
 }
 
-void inverseKinetmatic(Real *ta, Real *tb, Real *tc, const Real x, const Real y, const Real z, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real oa, const Real ob, const Real oc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc) {
+void inverseKinematic(Real *ta, Real *tb, Real *tc, const Real x, const Real y, const Real z, const Real rod1, const Real rod2, const Real rod3, const Real xa, const Real ya, const Real xc, const Real oa, const Real ob, const Real oc, const Real xsa, const Real ysa, const Real xsb, const Real ysb, const Real xsc, const Real ysc) {
 	// solve the polynomial for ta, tb, tc
 	//	ta^2 + ta*(-2*oa*ysa^2+(-2*ya+2*y)*ysa-2*oa*xsa^2+(-2*xa+2*x)*xsa+2*oa) - oa^2*ysa^2+ya^2-2*y*ya+y^2-oa^2*xsa^2+xa^2-2*x*xa+x^2-rod1^2+oa^2 = 0
 	//	tb^2 + tb*(-2*ob*ysb^2+(-2*ya+2*y)*ysb-2*ob*xsb^2+(2*xa+2*x)*xsb+2*ob) - ob^2*ysb^2+ya^2-2*y*ya+y^2-ob^2*xsb^2+xa^2+2*x*xa+x^2-rod2^2+ob^2 = 0
@@ -96,23 +96,23 @@ void inverseKinetmatic(Real *ta, Real *tb, Real *tc, const Real x, const Real y,
 
 //	printf("ta: %f  tb: %f  tc: %f +++++++\n", *ta, *tb, *tc);
 //
-//	*ta = -sqrt(sqr(oa)*pow(ysa,4)+(2*oa*ya-2*oa*y)*pow(ysa,3)+
-//	(sqr(ya)-2*y*ya+sqr(y)+2*sqr(oa)*sqr(xsa)+(2*oa*xa-2*oa*x)*xsa-sqr(oa))*sqr(ysa)+
-//	((2*oa*sqr(xsa)+(2*xa-2*x)*xsa-2*oa)*ya+(-2*oa*sqr(xsa)+(2*x-2*xa)*xsa+2*oa)*y)*ysa-sqr(ya)+2*y*ya-sqr(y)+sqr(oa)*
-//	pow(xsa,4)+(2*oa*xa-2*oa*x)*pow(xsa,3)+(sqr(xa)-2*x*xa+sqr(x)-sqr(oa))*sqr(xsa)+(2*oa*x-2*oa*xa)*xsa-sqr(xa)+2*x*xa-
-//	sqr(x)+sqr(rod1))+oa*sqr(ysa)+(ya-y)*ysa+oa*sqr(xsa)+(xa-x)*xsa-oa;
-//
-//	*tb = -sqrt(sqr(ob)*pow(ysb,4)+(2*ob*ya-2*ob*y)*pow(ysb,3)+
-//	(sqr(ya)-2*y*ya+sqr(y)+2*sqr(ob)*sqr(xsb)+(-2*ob*xa-2*ob*x)*xsb-sqr(ob))*sqr(ysb)+
-//	((2*ob*sqr(xsb)+(-2*xa-2*x)*xsb-2*ob)*ya+(-2*ob*sqr(xsb)+(2*xa+2*x)*xsb+2*ob)*y)*ysb-sqr(ya)+2*y*ya-sqr(y)+sqr(ob)*
-//	pow(xsb,4)+(-2*ob*xa-2*ob*x)*pow(xsb,3)+(sqr(xa)+2*x*xa+sqr(x)-sqr(ob))*sqr(xsb)+(2*ob*xa+2*ob*x)*xsb-sqr(xa)-2*x*xa
-//	-sqr(x)+sqr(rod2))+ob*sqr(ysb)+(ya-y)*ysb+ob*sqr(xsb)+(-xa-x)*xsb-ob;
-//
-//	*tc = -sqrt(sqr(oc)*pow(ysc,4)+(-4*oc*ya-2*oc*y)*pow(ysc,3)+
-//	(4*sqr(ya)+4*y*ya+sqr(y)+2*sqr(oc)*sqr(xsc)+(2*oc*xc-2*oc*x)*xsc-sqr(oc))*sqr(ysc)+
-//	((-4*oc*sqr(xsc)+(4*x-4*xc)*xsc+4*oc)*ya+(-2*oc*sqr(xsc)+(2*x-2*xc)*xsc+2*oc)*y)*ysc-4*sqr(ya)-4*y*ya-sqr(y)+sqr(oc)*
-//	pow(xsc,4)+(2*oc*xc-2*oc*x)*pow(xsc,3)+(sqr(xc)-2*x*xc+sqr(x)-sqr(oc))*sqr(xsc)+(2*oc*x-2*oc*xc)*xsc-sqr(xc)+2*x*xc-
-//	sqr(x)+sqr(rod3))+oc*sqr(ysc)+(-2*ya-y)*ysc+oc*sqr(xsc)+(xc-x)*xsc-oc;
+	*ta = -sqrt(sqr(oa)*pow(ysa,4)+(2*oa*ya-2*oa*y)*pow(ysa,3)+
+	(sqr(ya)-2*y*ya+sqr(y)+2*sqr(oa)*sqr(xsa)+(2*oa*xa-2*oa*x)*xsa-sqr(oa))*sqr(ysa)+
+	((2*oa*sqr(xsa)+(2*xa-2*x)*xsa-2*oa)*ya+(-2*oa*sqr(xsa)+(2*x-2*xa)*xsa+2*oa)*y)*ysa-sqr(ya)+2*y*ya-sqr(y)+sqr(oa)*
+	pow(xsa,4)+(2*oa*xa-2*oa*x)*pow(xsa,3)+(sqr(xa)-2*x*xa+sqr(x)-sqr(oa))*sqr(xsa)+(2*oa*x-2*oa*xa)*xsa-sqr(xa)+2*x*xa-
+	sqr(x)+sqr(rod1))+oa*sqr(ysa)+(ya-y)*ysa+oa*sqr(xsa)+(xa-x)*xsa-oa;
+
+	*tb = -sqrt(sqr(ob)*pow(ysb,4)+(2*ob*ya-2*ob*y)*pow(ysb,3)+
+	(sqr(ya)-2*y*ya+sqr(y)+2*sqr(ob)*sqr(xsb)+(-2*ob*xa-2*ob*x)*xsb-sqr(ob))*sqr(ysb)+
+	((2*ob*sqr(xsb)+(-2*xa-2*x)*xsb-2*ob)*ya+(-2*ob*sqr(xsb)+(2*xa+2*x)*xsb+2*ob)*y)*ysb-sqr(ya)+2*y*ya-sqr(y)+sqr(ob)*
+	pow(xsb,4)+(-2*ob*xa-2*ob*x)*pow(xsb,3)+(sqr(xa)+2*x*xa+sqr(x)-sqr(ob))*sqr(xsb)+(2*ob*xa+2*ob*x)*xsb-sqr(xa)-2*x*xa
+	-sqr(x)+sqr(rod2))+ob*sqr(ysb)+(ya-y)*ysb+ob*sqr(xsb)+(-xa-x)*xsb-ob;
+
+	*tc = -sqrt(sqr(oc)*pow(ysc,4)+(-4*oc*ya-2*oc*y)*pow(ysc,3)+
+	(4*sqr(ya)+4*y*ya+sqr(y)+2*sqr(oc)*sqr(xsc)+(2*oc*xc-2*oc*x)*xsc-sqr(oc))*sqr(ysc)+
+	((-4*oc*sqr(xsc)+(4*x-4*xc)*xsc+4*oc)*ya+(-2*oc*sqr(xsc)+(2*x-2*xc)*xsc+2*oc)*y)*ysc-4*sqr(ya)-4*y*ya-sqr(y)+sqr(oc)*
+	pow(xsc,4)+(2*oc*xc-2*oc*x)*pow(xsc,3)+(sqr(xc)-2*x*xc+sqr(x)-sqr(oc))*sqr(xsc)+(2*oc*x-2*oc*xc)*xsc-sqr(xc)+2*x*xc-
+	sqr(x)+sqr(rod3))+oc*sqr(ysc)+(-2*ya-y)*ysc+oc*sqr(xsc)+(xc-x)*xsc-oc;
 //
 //	printf("ta: %f  tb: %f  tc: %f   --------\n", *ta, *tb, *tc);
 }
@@ -289,9 +289,10 @@ int progress(void *instance, const Real *x, const Real *g, const Real fx, const 
 
 static void printDeltaParams(DeltaParams *p) {
 
-	printf("  rod: %.3f  delta_radius: %.3f  xa:%.3f  ya:%.3f  xc:%.3f  oa: %.3f  ob: %.3f  oc: %.3f  probeCount: %i\n", p->rod, p->delta_radius, p->xa, p->ya, p->xc, p->oa, p->ob, p->oc, p->probeCount);
+	printf(">>> rod: %.3f  delta_radius: %.3f  xa:%.3f  ya:%.3f  xc:%.3f  oa: %.3f  ob: %.3f  oc: %.3f  probeCount: %i\n", p->rod, p->delta_radius, p->xa, p->ya, p->xc, p->oa, p->ob, p->oc, p->probeCount);
+	printf(">>> tower skew: xsa:%.3f  ysa:%.3f  xsb:%.3f  ysb: %.3f  xsc: %.3f  ysc: %.3f\n", p->xsa, p->ysa, p->xsb, p->ysb, p->xsc, p->ysc);
 	if (p->probeCount > 0) {
-		printf("probePoints: ");
+		printf(">>> probePoints: ");
 		for (int i = 0; i < p->probeCount; i++)
 			printf("(%.2f,%.2f,%.2f) ", p->probePoints[i][0], p->probePoints[i][1], p->probePoints[i][2]);
 		printf("\n");
@@ -310,10 +311,11 @@ static int shmequal(Real a, Real b) {
 	return abs(a - b) < 0.000001;
 }
 
-int repeats = 100;
+const int repeats = 1000;
 DeltaParams *results[1000];
 int resultsFailed = 0;
 int resultsConverged = 0;
+int solutionsFound = 0;
 
 static int calibrate() {
 
@@ -392,9 +394,11 @@ static int calibrate() {
 		r->oc = x[6];
 //		r->probeCount =
 
+		// bubblesort lol
 		for (int i = 0; i < repeats; i++) {
 			if (results[i] == NULL) {
 				results[i] = r;
+				solutionsFound++;
 				break;
 			} else if (shmequal(results[i]->calibError, r->calibError) && shmequal(results[i]->rod, r->rod)) {
 				break;
@@ -402,6 +406,7 @@ static int calibrate() {
 				for (int o = repeats - 1; o > i; o--) // make space and bubble up
 					results[o] = results[o-1];
 				results[i] = r;
+				solutionsFound++;
 				break;
 			}
 		}
@@ -417,10 +422,10 @@ static int calibrate() {
 static DeltaParams* generateDummyDelta(DeltaParams* p) {
 
 	Real psca = 0; // probe x/y scatter
-	Real perr = 0.1; // probe z error
+	Real perr = 0; // probe z error
 	Real terr = 1; // tower position error
-	Real serr = 0; // tower skew error
-	Real oerr = 1; // endstop offset error
+	Real serr = 5; // tower skew error
+	Real oerr = 5; // endstop offset error
 	Real x, y, z = 0;
 	Real ta, tb, tc;
 
@@ -432,7 +437,7 @@ static DeltaParams* generateDummyDelta(DeltaParams* p) {
 	p->oa = random2(200, 500);
 	p->ob = p->oa + random2(-oerr, oerr);
 	p->oc = p->oa + random2(-oerr, oerr);
-	p->probeCount = 7 + (int) random2(6, 21);
+	p->probeCount = 7 + (int) random2(16, 21);
 	p->xsa = random2(-serr, +serr);
 	p->ysa = random2(-serr, +serr);
 	p->xsb = random2(-serr, +serr);
@@ -463,15 +468,17 @@ static DeltaParams* generateDummyDelta(DeltaParams* p) {
 		z = random2(-perr, perr); // generate a bit of probe error or bed level error for the Z value
 //		z += x * 0.01; // add some tilt
 
-//		printf("x: %f  y: %f  z: %f generated\n", x, y, z);
-//		inverseKinetmatic(&ta, &tb, &tc, x, y, z, p->rod, p->rod2, p->rod3, p->xa, p->ya, p->xc, p->oa, p->ob, p->oc, p->xsa, p->ysa, p->xsb, p->ysb, p->xsc, p->ysc);
-//		printf("ta: %f  tb: %f  tc: %f\n", ta, tb, tc);
-//		forwardKinematic(&x, &y, ta, tb, tc, p->rod, p->rod2, p->rod3, p->xa, p->ya, p->xc, p->oa, p->ob, p->oc, p->xsa, p->ysa, p->xsb, p->ysb, p->xsc, p->ysc);
-//		printf("x: %f  y: %f  z: %f forward\n", x, y, z);
+		printf("\nGenerated point:\n");
+		printf("x: %f  y: %f  z: %f generated\n", x, y, z);
+		inverseKinematic(&ta, &tb, &tc, x, y, z, p->rod, p->rod2, p->rod3, p->xa, p->ya, p->xc, p->oa, p->ob, p->oc, p->xsa, p->ysa, p->xsb, p->ysb, p->xsc, p->ysc);
+		printf("ta: %f  tb: %f  tc: %f\n", ta, tb, tc);
+		forwardKinematic(&x, &y, ta, tb, tc, p->rod, p->rod2, p->rod3, p->xa, p->ya, p->xc, p->oa, p->ob, p->oc, p->xsa, p->ysa, p->xsb, p->ysb, p->xsc, p->ysc);
+		printf("x: %f  y: %f  z: %f forward\n", x, y, z);
 
-		ta = sqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) + 2 * x * p->xa - sqr(x) + sqr(p->rod))) - p->oa;
-		tb = sqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) - 2 * x * p->xa - sqr(x) + sqr(p->rod2))) - p->ob;
-		tc = sqrt((z - 4 * sqr(p->ya) - 4 * y * p->ya - sqr(y) - sqr(p->xc) + 2 * x * p->xc - sqr(x) + sqr(p->rod3))) - p->oc;
+//		ta = sqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) + 2 * x * p->xa - sqr(x) + sqr(p->rod))) - p->oa;
+//		tb = sqrt((z - sqr(p->ya) + 2 * y * p->ya - sqr(y) - sqr(p->xa) - 2 * x * p->xa - sqr(x) + sqr(p->rod2))) - p->ob;
+//		tc = sqrt((z - 4 * sqr(p->ya) - 4 * y * p->ya - sqr(y) - sqr(p->xc) + 2 * x * p->xc - sqr(x) + sqr(p->rod3))) - p->oc;
+//		printf("ta: %f  tb: %f  tc: %f again?\n", ta, tb, tc);
 //		printf("%f %f %f\n", p->probePoints[i][0], p->probePoints[i][1], p->probePoints[i][2]);
 
 		p->probePoints[i][0] = ta;
@@ -484,7 +491,10 @@ static DeltaParams* generateDummyDelta(DeltaParams* p) {
 
 int main(int argc, char *argv[]) {
 
-	repeats = 1000;
+//	repeats = 10000;
+
+	// generate randomized delta
+	generateDummyDelta(&p);
 
 	// initialize random seed
 	struct timeval time;
@@ -492,21 +502,21 @@ int main(int argc, char *argv[]) {
 	srand((time.tv_sec * 1000) + (time.tv_usec / 1000));
 //	srand((unsigned)time(NULL));
 
-	// generate randomized delta
-	generateDummyDelta(&p);
 
 	printf("Initial delta parameters:\n");
 	printDeltaParams(&p);
+	fflush(stdout);
 
+	printf("\nStarting calibration:\n");
 	clock_t startClock = clock();
 	for (int i = 0; i < repeats; i++)
 		calibrate();
 
-	printf("\nCalibration finished - used %0.3f seconds of CPU time. %i results converged and %i failed \n\n", (double) (clock() - startClock) / CLOCKS_PER_SEC, resultsConverged, resultsFailed);
+	printf("\nCalibration finished - used %0.3f seconds of CPU time. %i solutions found, %i results converged and %i failed \n\n", (double) (clock() - startClock) / CLOCKS_PER_SEC, solutionsFound, resultsConverged, resultsFailed);
 
 	for (int i = 0; i < repeats; i++)
 		if (results[i] != NULL) {
-			printf("Solution %i error: %f (%e)\n", i, results[i]->calibError, results[i]->calibError);
+			printf("\nSolution %i error: %f (%e)\n", i, results[i]->calibError, results[i]->calibError);
 			printDeltaParams(results[i]);
 		}
 
